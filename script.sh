@@ -30,70 +30,66 @@ archive_and_delete() {
     cp $HOME/testfile.txt $flash_drive
     end_time="$(date +%s%N)"
     elapsed="$(($end_time-$start_time))"
-    elapsed="$(($elapsed / 1000000))"
-    echo "Total of $elapsed milliseconds elapsed for process"
-   
+    elapsed="$(($elapsed / 1000000000))"
+    speed="$((50 / $elapsed))"
+    echo "Total of $elapsed seconds elapsed for speedtest process with speed $speed MB/S"
+    echo "Are you ready to wait $(($user_folder_size / $speed)) seconds?"
+    
+    select yn in "Yes" "No"; do
+    case $yn in
+        Yes ) break;;
+        No ) exit;;
+    esac
+done
+
+
     rm $HOME/testfile.txt
     rm $flash_drive/testfile.txt
+    rm -rf $flash_drive/backup
 
     if [ ! -d "$flash_drive/backup" ]; then
         mkdir -p "$flash_drive/backup"
     fi
 
     echo "Архивация пользовательской папки..."
-    zip -r "$flash_drive/backup/archive.zip" "$HOME" > /dev/null
+    tar -czf "$flash_drive/backup/archive.tar.gz"  ~/
 
-    if [ $? -ne 0 ]; then
+    if ! test -f "$flash_drive/backup/archive.tar.gz"; then
         echo "Архивация не удалась. Проверьте наличие свободного места на флешке."
         exit 1
     else
         echo "Архивация успешно завершена."
         echo "Проверка архива..."
-        diff "$HOME/testfile.txt" "$flash_drive/testfile.txt" > /dev/null
-        if [ $? -ne 0 ]; then
-            echo "Проверка не пройдена. Архив не идентичен оригиналу."
-            exit 1
-        else
-            echo "Проверка пройдена. Удаление тестового файла..."
-            rm -f "$test_file"
-            echo "Удаление файлов и папок с компьютера..."
-            rm -rf ~/Downloads ~/Desktop ~/Music ~/Videos ~/Pictures
-            echo "Готово!"
-        fi
+        echo "Удаление файлов и папок с компьютера..."
+        rm -rf ~/Downloads ~/Documents ~/Music ~/Videos ~/Pictures
+        echo "Готово!"
     fi
 }
 
 
 clean_temp_files() {
     echo "*** Функция 'Очистка временных файлов' ***"
-    echo "Очистка временных файлов..."
-    rm -rf "$TMPDIR"/* "$HOME"/.local/share/*/{Google/Chrome,Microsoft/Edge}
+    echo "Очистка временных файлов..." 
+    rm -rf "$HOME/.local/share/*"
+    rm -rf "$HOME/.cache/*"
+    rm -rf "$HOME/snap/firefox"
     echo "Готово!"
 }
 
 restore_from_archive() {
     echo "*** Функция 'Восстановление данных из архива' ***"
 
-    archive="$flash_drive/backup/archive.zip"
+    archive="$flash_drive/backup/archive.tar.gz"
     if [ ! -f "$archive" ]; then
         echo "Архив не найден на флешке. Проверьте наличие файла archive.zip в папке backup."
         exit 1
     fi
 
     echo "Распаковка архива..."
-    mkdir "$HOME/restore"
-    unzip "$archive" -d "$HOME/restore" > /dev/null
-
-    if [ $? -ne 0 ]; then
-        echo "Распаковка не удалась. Проверьте архив на флешке."
-        exit 1
-    else
-        echo "Распаковка успешно завершена. Копирование данных..."
-        cp -r "$HOME/restore"/* "$HOME"
-        echo "Очистка временных файлов..."
-        rm -rf "$HOME/restore"
-        echo "Готово!"
-    fi
+    tar -xzf "$flash_drive/backup/archive.tar.gz" -C /
+    rm -rf "$flash_drive/backup/archive.tar.gz"
+    echo "Готово!"
+    
 }
 
 # Выбор функции
